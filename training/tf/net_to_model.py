@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import tensorflow as tf
+import yaml
 import os
 import sys
 from tfprocess import TFProcess
@@ -29,10 +30,13 @@ x = [
     tf.placeholder(tf.float32, [None, 1])
     ]
 
-tfprocess = TFProcess(x)
+cfg = yaml.safe_load(open(sys.argv[2], 'r').read())
+print(yaml.dump(cfg, default_flow_style=False))
+tfprocess = TFProcess(cfg, x)
 tfprocess.replace_weights(weights)
 #import json
 #with open(sys.argv[2], 'r') as f:
 #    tfprocess.inference(json.load(f)['input'])
-path = os.path.join(os.getcwd(), "leelaz-model")
-save_path = tfprocess.saver.save(tfprocess.session, path, global_step=0)
+#save_path = tfprocess.saver.save(tfprocess.session, path, global_step=0)
+path = os.path.join(os.getcwd(), "leelaz-model.pb")
+tfprocess.save_frozen_model(path)

@@ -63,7 +63,7 @@ class TFProcess:
         self.x = next_train_batch[0]  # tf.placeholder(tf.float32, [None, 120, 8 * 8])
         self.y_ = next_train_batch[1] # tf.placeholder(tf.float32, [None, 1924])
         self.z_ = next_train_batch[2] # tf.placeholder(tf.float32, [None, 1])
-        self.training = tf.placeholder(tf.bool)
+        self.training = tf.placeholder(tf.bool, name='input_training')
         self.batch_norm_count = 0
 
         self.y_conv, self.z_conv = self.construct_net(self.x)
@@ -283,6 +283,19 @@ class TFProcess:
         #v = self.session.run(output, feed_dict={self.x:data, self.training:False})
         #print('input_conv', v)
 
+    def save_frozen_model(self, filename):
+        # We use a built-in TF helper to export variables to constants
+        output_graph_def = tf.graph_util.convert_variables_to_constants(
+            self.session, # The session is used to retrieve the weights
+            tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes
+            ['policy_head', 'value_head'] # The output node names are used to select the usefull nodes
+        )
+
+        # Finally we serialize and dump the output graph to the filesystem
+        with tf.gfile.GFile(filename, "wb") as f:
+            f.write(output_graph_def.SerializeToString())
+        print("%d ops in the final graph." % len(output_graph_def.node))
+
     def get_batchnorm_key(self):
         result = "bn" + str(self.batch_norm_count)
         self.batch_norm_count += 1
@@ -356,13 +369,12 @@ class TFProcess:
 
         # NCHW format
         # batch, 120 input channels, 8 x 8
-        x_planes = tf.reshape(planes, [-1, 120, 8, 8])
+        x_planes = tf.reshape(planes, [-1, 120, 8, 8], name='input_planes')
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
                                input_channels=120,
-                               output_channels=RESIDUAL_FILTERS,
-                               name='input_conv')
+                               output_channels=RESIDUAL_FILTERS)
         # Residual tower
         for _ in range(0, RESIDUAL_BLOCKS):
             flow = self.residual_block(flow, RESIDUAL_FILTERS)
